@@ -1,0 +1,2458 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام توزيع دعوات كبار الشخصيات</title>
+    
+    <!-- خطوط عربية ممتازة وملائمة للمنصات الرسمية -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- مكتبات Three.js للمحاكاة ثلاثية الأبعاد -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- إعداد تخصيص Tailwind للتصميم الفاخر -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                        heading: ['Tajawal', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#059669', // أخضر زمردي
+                        dark: '#0f172a',    // كحلي داكن فاخر
+                        vvip: {
+                            light: '#fef3c7',
+                            DEFAULT: '#d97706', // ذهبي ملكي
+                            dark: '#78350f'
+                        },
+                        vip: {
+                            light: '#e0e7ff',
+                            DEFAULT: '#3b82f6', // أزرق كلاسيكي
+                            dark: '#1e3a8a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #f8fafc; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* تأثيرات الانتقال والتنبيهات */
+        .toast-enter { animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        .toast-exit { animation: slideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(-100%); opacity: 0; }
+        }
+
+        /* تنسيق خلايا المقاعد بالمنصة التفاعلية */
+        .interactive-seat {
+            aspect-ratio: 1 / 1;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* تخصيص صفحة الطباعة برمجياً */
+        @media print {
+            body {
+                background-color: white !important;
+                color: black !important;
+                overflow: visible !important;
+                height: auto !important;
+            }
+            header, 
+            #toast-container,
+            #guest-form,
+            #event-modal,
+            #guest-card-modal,
+            .lg\:w-\[32\%\], 
+            .border-b.border-slate-100, 
+            .bg-slate-50.border, 
+            #table-controls,
+            .h-\[300px\], 
+            button,
+            .role-protocol-only,
+            .role-relations-only {
+                display: none !important;
+            }
+            main {
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+            }
+            .lg\:flex-1 {
+                width: 100% !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+            .interactive-seat {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .print-title {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 20px;
+                border-bottom: 2px solid #000;
+                padding-bottom: 10px;
+            }
+            .print-seat-name {
+                display: block !important;
+                font-size: 8px !important;
+                line-height: 1 !important;
+                margin-top: 2px;
+                color: #000 !important;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+        }
+
+        .print-title { display: none; }
+        .print-seat-name { display: none; }
+
+        .show-names-on-seats .print-seat-name {
+            display: block;
+            font-size: 8px;
+            line-height: 1.1;
+            margin-top: 1px;
+            font-weight: 600;
+            color: #ffffff;
+            width: 95%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .show-names-on-seats .interactive-seat {
+            justify-content: flex-start;
+            padding-top: 4px;
+        }
+
+        /* تنسيقات التحكم الديناميكي بالأدوار */
+        .role-relations-only, .role-protocol-only { display: none; }
+        
+        body.relations-user .role-relations-only { display: block; }
+        body.relations-user flex.role-relations-only { display: flex; }
+        body.protocol-user .role-protocol-only { display: block; }
+        body.protocol-user flex.role-protocol-only { display: flex; }
+        
+        body.admin-user .role-relations-only, body.admin-user .role-protocol-only { display: block; }
+        body.admin-user flex.role-relations-only, body.admin-user flex.role-protocol-only { display: flex; }
+
+        /* شاشة تحميل وإرشادات الـ 3D */
+        #canvas3d-loading {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden font-sans bg-slate-50">
+
+    <!-- حاوية الإشعارات والتنبيهات السريعة -->
+    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2"></div>
+
+    <!-- عنوان ترويسي يظهر فقط أثناء الطباعة الورقية -->
+    <div class="print-title">
+        <h1 class="text-2xl font-bold font-heading" id="print-header-event-name">نهائي كأس الملك</h1>
+        <p class="text-sm mt-1" id="print-header-event-info">استاد الملك فهد الدولي | التاريخ: الأحد، 17 مايو 2026</p>
+        <p class="text-xs text-slate-500 mt-1">كشف ومخطط توزيع مقاعد كبار الشخصيات VIP & VVIP</p>
+    </div>
+
+    <!-- ==================== شاشة تسجيل الدخول وإنشاء الحساب ==================== -->
+    <div id="auth-container" class="fixed inset-0 bg-dark z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 border border-slate-100 relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl"></div>
+
+            <div class="text-center mb-6 relative z-10">
+                <div class="bg-primary/10 text-primary w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <i data-lucide="shield-check" class="w-8 h-8"></i>
+                </div>
+                <h2 id="auth-title" class="text-2xl font-heading font-black text-dark text-center leading-relaxed">نظام توزيع دعوات كبار الشخصيات</h2>
+                <p id="auth-subtitle" class="text-xs text-gray-400 mt-1">يرجى تسجيل الدخول للوصول إلى لوحة التحكم</p>
+            </div>
+
+            <!-- نموذج تسجيل الدخول -->
+            <form id="auth-form" class="space-y-4 relative z-10">
+                <input type="hidden" id="auth-mode" value="login">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">اسم المستخدم</label>
+                    <div class="relative">
+                        <span class="absolute right-3 top-2.5 text-gray-400">
+                            <i data-lucide="user" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" id="auth-username" required placeholder="أدخل اسم المستخدم" class="w-full text-xs border border-gray-300 rounded-lg pr-9 pl-3 py-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">كلمة المرور</label>
+                    <div class="relative">
+                        <span class="absolute right-3 top-2.5 text-gray-400">
+                            <i data-lucide="key-round" class="w-4 h-4"></i>
+                        </span>
+                        <input type="password" id="auth-password" required placeholder="••••••••" class="w-full text-xs border border-gray-300 rounded-lg pr-9 pl-3 py-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+                    </div>
+                </div>
+                
+                <!-- خيار اختيار نوع الحساب أثناء إنشاء حساب جديد -->
+                <div id="auth-role-wrapper" class="hidden">
+                    <label class="block text-xs font-bold text-gray-600 mb-1">قسم العمل / الدور الوظيفي</label>
+                    <select id="auth-role" class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white font-bold">
+                        <option value="relations">العلاقات الدولية (إدخال وتأكيد تواصل الضيوف)</option>
+                        <option value="protocol">المراسم وتنظيم المنصة (توزيع الكراسي)</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="w-full bg-primary hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl transition-all text-xs shadow-md shadow-emerald-100 flex items-center justify-center gap-1.5">
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    <span id="auth-submit-btn">تسجيل الدخول</span>
+                </button>
+            </form>
+
+            <div class="text-center mt-5 text-xs text-gray-500 relative z-10">
+                <span id="auth-toggle-text">ليس لديك حساب?</span>
+                <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-primary font-bold hover:underline pr-1">إنشاء حساب جديد</button>
+            </div>
+
+            <!-- معلومات الحسابات الافتراضية للتسهيل -->
+            <div class="mt-6 p-3 bg-slate-50 rounded-xl border border-slate-100 text-[10px] text-gray-400 leading-relaxed">
+                <span class="font-bold block text-gray-500 mb-1">💡 الحسابات والأدوار المجهزة مسبقاً:</span>
+                • العلاقات الدولية: <span class="font-bold text-slate-600">relations</span> (كلمة المرور: <span class="font-bold text-slate-600">rel123</span>)<br>
+                • إدارة المراسم: <span class="font-bold text-slate-600">protocol</span> (كلمة المرور: <span class="font-bold text-slate-600">prot123</span>)<br>
+                • المدير العام: <span class="font-bold text-slate-600">admin</span> (كلمة المرور: <span class="font-bold text-slate-600">admin123</span>)
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== واجهة التطبيق الرئيسية (محمية) ==================== -->
+    <div id="main-app-layout" class="hidden h-screen flex flex-col overflow-hidden">
+        
+        <!-- نافذة منبثقة لإنشاء / تعديل فعالية جديدة -->
+        <div id="event-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+            <div class="bg-white p-6 rounded-3xl shadow-2xl max-w-md w-full mx-4 border border-gray-100 relative overflow-hidden">
+                <div class="absolute top-0 right-0 left-0 h-2 bg-primary"></div>
+                
+                <div class="flex justify-between items-start mb-4 mt-2">
+                    <h3 id="event-modal-title" class="text-lg font-heading font-bold flex items-center gap-2 text-dark">
+                        <i data-lucide="calendar-plus" class="w-5.5 h-5.5 text-primary"></i>
+                        إضافة فعالية جديدة للمنصة
+                    </h3>
+                    <button onclick="closeEventModal()" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                        <i data-lucide="x" class="w-5.5 h-5.5"></i>
+                    </button>
+                </div>
+                
+                <form id="event-form" class="space-y-4">
+                    <input type="hidden" id="edit-event-id">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">اسم الفعالية / المباراة <span class="text-red-500">*</span></label>
+                        <input type="text" id="ev-input-name" required placeholder="مثال: نهائي كأس السوبر السعودي" class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">مكان الفعالية / الملعب <span class="text-red-500">*</span></label>
+                        <input type="text" id="ev-input-location" required placeholder="مثال: استاد الملك فهد الدولي" class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1">تاريخ الفعالية <span class="text-red-500">*</span></label>
+                        <input type="date" id="ev-input-date" required class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+                    </div>
+                    
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit" class="flex-1 bg-primary hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl transition-all text-xs">
+                            حفظ تفاصيل الفعالية
+                        </button>
+                        <button type="button" onclick="closeEventModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl transition-all text-xs">
+                            إلغاء
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- نافذة منبثقة تفاعلية لعرض تفاصيل الضيف ومقعده بالكامل -->
+        <div id="guest-card-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+            <div class="bg-white p-6 rounded-3xl shadow-2xl max-w-md w-full mx-4 border border-gray-100 relative overflow-hidden">
+                <div class="absolute top-0 right-0 left-0 h-2" id="modal-accent-bar"></div>
+                
+                <div class="flex justify-between items-start mb-4 mt-2">
+                    <h3 class="text-xl font-heading font-bold flex items-center gap-2 text-dark">
+                        <i data-lucide="user-check" class="w-6 h-6 text-primary"></i>
+                        بطاقة تفاصيل الضيف
+                    </h3>
+                    <button onclick="closeGuestModal()" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="bg-slate-50 p-4 rounded-2xl space-y-3 border border-slate-100">
+                        <div>
+                            <span class="text-xs text-gray-400 block font-bold">اسم الضيف</span>
+                            <p id="modal-g-name" class="font-bold text-lg text-dark"></p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-400 block font-bold">الوظيفة / المسمى الوظيفي</span>
+                            <p id="modal-g-job" class="text-gray-700 text-sm font-semibold"></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <span class="text-xs text-gray-400 block font-bold">رقم الهاتف</span>
+                                <p id="modal-g-phone" class="text-gray-700 font-mono text-xs mt-1" dir="ltr"></p>
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-400 block font-bold">البريد الإلكتروني</span>
+                                <p id="modal-g-email" class="text-gray-700 font-mono text-xs mt-1" dir="ltr"></p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <span class="text-xs text-gray-400 block font-bold">عدد التذاكر / المرافقين</span>
+                                <p id="modal-g-tickets" class="text-gray-700 text-sm font-semibold mt-1"></p>
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-400 block font-bold">المقعد المخصص</span>
+                                <span id="modal-g-seat" class="inline-block mt-1 px-3 py-1 rounded-md text-xs font-mono font-bold bg-dark text-white"></span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
+                            <div>
+                                <span class="text-xs text-gray-400 block font-bold">فئة الدعوة</span>
+                                <span id="modal-g-category" class="inline-block mt-1 px-3 py-1 rounded-full text-xs font-black"></span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-400 block font-bold">حالة الحضور</span>
+                                <span id="modal-g-status-badge" class="inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- خيارات التواصل الفوري وإرسال التذكرة - تظهر للعلاقات والآدمن فقط -->
+                    <div class="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100 space-y-2 role-relations-only">
+                        <span class="text-xs text-emerald-800 font-bold block mb-1">خيارات إرسال الدعوة الفورية:</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="modal-send-whatsapp" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-1.5 text-xs shadow-sm shadow-emerald-100">
+                                <i data-lucide="message-square" class="w-4 h-4"></i> إرسال واتساب
+                            </button>
+                            <button id="modal-send-email" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-1.5 text-xs shadow-sm shadow-slate-100">
+                                <i data-lucide="mail" class="w-4 h-4"></i> إرسال إيميل
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <!-- تظهر إمكانية التعديل للعلاقات فقط لمنع تغيير المراسم للمعلومات الشخصية -->
+                        <button id="modal-edit-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-1 text-xs role-relations-only">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i> تعديل البيانات
+                        </button>
+                        <button id="modal-toggle-approval" class="flex-1 bg-slate-800 hover:bg-slate-950 text-white font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-1 text-xs role-relations-only">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i> تغيير حالة الحضور
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ترويسة البرنامج الرئيسية -->
+        <header class="bg-dark text-white p-4 shadow-lg shrink-0 flex flex-col lg:flex-row justify-between items-center z-20 relative border-b border-emerald-950/40 gap-3">
+            <div class="flex items-center gap-3">
+                <div class="bg-primary p-2 rounded-xl shadow-md shadow-emerald-900/40">
+                    <i data-lucide="armchair" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-heading font-black text-lg lg:text-xl leading-tight text-white tracking-wide flex items-center gap-2">
+                        نظام توزيع دعوات كبار الشخصيات
+                    </h1>
+                    <p class="text-[11px] text-emerald-400">إدارة وتنسيق تذاكر الفعاليات المتعددة في نفس اليوم بمرونة مطلقة</p>
+                </div>
+            </div>
+            
+            <!-- نظام التبديل والتحكم بالفعاليات -->
+            <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/60 w-full lg:w-auto">
+                <span class="text-xs font-bold text-gray-300 pr-2 flex items-center gap-1 whitespace-nowrap">
+                    <i data-lucide="layers" class="w-3.5 h-3.5 text-emerald-400"></i> الفعالية النشطة:
+                </span>
+                <select id="active-event-select" onchange="changeActiveEvent(this.value)" class="bg-slate-900 text-white text-xs border border-slate-600 rounded-lg px-2.5 py-1.5 outline-none font-bold focus:ring-1 focus:ring-primary min-w-[180px] cursor-pointer">
+                    <!-- يتم تعبئة الفعاليات برمجياً -->
+                </select>
+                <!-- المراسم والآدمن فقط يمكنهم إضافة فعاليات -->
+                <button onclick="openAddEventModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg p-1.5 transition-colors flex items-center gap-1 text-xs font-bold role-protocol-only" title="إضافة فعالية جديدة">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">فعالية جديدة</span>
+                </button>
+            </div>
+
+            <!-- تفاصيل المستخدم المسجل وتسجيل الخروج -->
+            <div class="flex items-center gap-4 bg-slate-800/40 px-3 py-1.5 rounded-xl border border-slate-700/40">
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-400">المستخدم الحالي:</p>
+                    <p id="user-display-name" class="text-xs font-bold text-white"></p>
+                </div>
+                <button onclick="handleLogout()" class="bg-red-500/10 hover:bg-red-500 hover:text-white text-red-400 rounded-lg p-2 transition-all" title="تسجيل الخروج">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="flex gap-2 shrink-0">
+                <button onclick="seedSampleData()" class="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-2 rounded-lg border border-emerald-500/30 hover:bg-primary hover:text-white transition-all flex items-center gap-1.5 font-bold">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i> تعبئة تجريبية
+                </button>
+                <button onclick="clearAllData()" class="text-xs bg-red-500/10 text-red-400 px-3 py-2 rounded-lg border border-red-500/20 hover:bg-red-500 hover:text-white transition-all flex items-center gap-1.5 font-bold">
+                    <i data-lucide="trash" class="w-4 h-4"></i> تصفير النظام
+                </button>
+            </div>
+        </header>
+
+        <!-- مساحة العمل الرئيسية المقسمة -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col lg:flex-row gap-6">
+            
+            <!-- القسم الأيمن: إعدادات التخطيط، استمارة التسجيل، والإحصائيات -->
+            <div class="w-full lg:w-[32%] flex flex-col gap-6 shrink-0">
+                
+                <!-- لوحة تفاصيل الفعالية النشطة حالياً -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
+                    <div class="flex justify-between items-center mb-2.5 pb-2 border-b border-slate-100">
+                        <h3 class="font-heading font-bold text-xs flex items-center gap-1.5 text-dark">
+                            <i data-lucide="calendar" class="w-4.5 h-4.5 text-primary"></i>
+                            تفاصيل الفعالية الحالية
+                        </h3>
+                        <div class="flex gap-1.5 role-protocol-only">
+                            <button onclick="openEditEventModal()" class="text-slate-500 hover:text-primary p-1 rounded hover:bg-slate-100 transition-colors" title="تعديل تفاصيل الفعالية">
+                                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="deleteActiveEvent()" class="text-slate-500 hover:text-red-500 p-1 rounded hover:bg-slate-100 transition-colors" title="حذف هذه الفعالية بالكامل">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-1.5 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">الاسم:</span>
+                            <span id="info-event-name" class="font-bold text-slate-800"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">المكان:</span>
+                            <span id="info-event-location" class="font-bold text-slate-800"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">التاريخ:</span>
+                            <span id="info-event-date" class="font-bold font-mono text-slate-800"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- لوحة إعدادات وتخصيص هيكلية المنصة - تظهر فقط لقسم المراسم -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 relative overflow-hidden role-protocol-only">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+                        <h3 class="font-heading font-bold text-xs flex items-center gap-2 text-dark">
+                            <i data-lucide="settings-2" class="w-4.5 h-4.5 text-amber-500"></i>
+                            تخصيص هيكل المنصة والمقاعد
+                        </h3>
+                    </div>
+                    
+                    <div class="space-y-3 text-xs">
+                        <!-- تعديل VVIP -->
+                        <div class="p-2.5 bg-amber-50/50 rounded-xl border border-amber-200/50 space-y-2">
+                            <span class="font-bold text-amber-900 block flex items-center gap-1">
+                                <i data-lucide="crown" class="w-3.5 h-3.5"></i> كراسي الـ VVIP
+                            </span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 mb-1 font-semibold">عدد الصفوف</label>
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="adjustLayout('VVIP', 'rows', -1)" class="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded">-</button>
+                                        <span id="config-vvip-rows-count" class="flex-1 text-center font-bold font-mono text-amber-950 bg-white border rounded py-1">5</span>
+                                        <button onclick="adjustLayout('VVIP', 'rows', 1)" class="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded">+</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 mb-1 font-semibold">المقاعد لكل صف</label>
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="adjustLayout('VVIP', 'seats', -1)" class="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded">-</button>
+                                        <span id="config-vvip-seats-count" class="flex-1 text-center font-bold font-mono text-amber-950 bg-white border rounded py-1">10</span>
+                                        <button onclick="adjustLayout('VVIP', 'seats', 1)" class="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- تعديل VIP -->
+                        <div class="p-2.5 bg-blue-50/40 rounded-xl border border-blue-200/50 space-y-2">
+                            <span class="font-bold text-blue-900 block flex items-center gap-1">
+                                <i data-lucide="award" class="w-3.5 h-3.5"></i> كراسي الـ VIP
+                            </span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 mb-1 font-semibold">عدد الصفوف</label>
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="adjustLayout('VIP', 'rows', -1)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-2 py-1 rounded">-</button>
+                                        <span id="config-vip-rows-count" class="flex-1 text-center font-bold font-mono text-blue-950 bg-white border rounded py-1">8</span>
+                                        <button onclick="adjustLayout('VIP', 'rows', 1)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-2 py-1 rounded">+</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 mb-1 font-semibold">المقاعد لكل صف</label>
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="adjustLayout('VIP', 'seats', -1)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-2 py-1 rounded">-</button>
+                                        <span id="config-vip-seats-count" class="flex-1 text-center font-bold font-mono text-blue-950 bg-white border rounded py-1">10</span>
+                                        <button onclick="adjustLayout('VIP', 'seats', 1)" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold px-2 py-1 rounded">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- نموذج العلاقات الدولية (لإدخال وتأكيد الضيوف) -->
+                <div id="form-relations-container" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden role-relations-only">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-primary"></div>
+                    <h3 class="font-heading font-bold text-base mb-4 flex items-center gap-2 text-dark border-b pb-2">
+                        <i data-lucide="user-plus" class="w-5 h-5 text-primary"></i>
+                        <span id="form-title">تسجيل دعوة ضيف جديدة</span>
+                    </h3>
+                    
+                    <form id="guest-form" class="space-y-3.5">
+                        <input type="hidden" id="edit-guest-id">
+                        
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">اسم الضيف <span class="text-red-500">*</span></label>
+                            <input type="text" id="g-input-name" required placeholder="الاسم الكامل للضيف" class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">الوظيفة / الجهة <span class="text-red-500">*</span></label>
+                            <input type="text" id="g-input-job" required placeholder="الوظيفة أو جهة العمل الرسمية" class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary focus:border-transparent outline-none">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">رقم الهاتف <span class="text-red-500">*</span></label>
+                                <input type="tel" id="g-input-phone" required placeholder="05xxxxxxxx" class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none font-mono text-left" dir="ltr">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">البريد الإلكتروني</label>
+                                <input type="email" id="g-input-email" placeholder="example@domain.com" class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none font-mono text-left" dir="ltr">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-600 mb-1">فئة الدعوة <span class="text-red-500">*</span></label>
+                                <select id="g-input-category" class="w-full text-[11px] border border-gray-300 rounded-lg px-1 py-2 focus:ring-2 focus:ring-primary bg-white font-bold">
+                                    <option value="VVIP">VVIP</option>
+                                    <option value="VIP">VIP</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-600 mb-1">عدد الدعوات</label>
+                                <input type="number" id="g-input-tickets" value="1" min="1" max="10" class="w-full text-[11px] border border-gray-300 rounded-lg px-2 py-2 focus:ring-2 focus:ring-primary bg-white font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-600 mb-1">حالة الحضور <span class="text-red-500">*</span></label>
+                                <select id="g-input-approval" class="w-full text-[11px] border border-gray-300 rounded-lg px-1 py-2 focus:ring-2 focus:ring-primary bg-white font-bold">
+                                    <option value="approved" class="text-emerald-600">✔️ موافقة</option>
+                                    <option value="declined" class="text-red-600">❌ اعتذار</option>
+                                    <option value="pending" class="text-amber-600">⏳ معلق</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button type="submit" class="flex-1 bg-primary hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl transition-all text-xs shadow-md flex justify-center items-center gap-1">
+                                <i data-lucide="check-square" class="w-4 h-4"></i> حفظ وتأكيد الحضور
+                            </button>
+                            <button type="button" onclick="resetForm()" id="cancel-edit-btn" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 rounded-xl text-xs">
+                                إلغاء
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- نموذج المراسم (لتسكين وتوزيع الضيوف الموافقين على الكراسي) -->
+                <div id="form-protocol-container" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 relative overflow-hidden role-protocol-only">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
+                    <h3 class="font-heading font-bold text-base mb-4 flex items-center gap-2 text-dark border-b pb-2">
+                        <i data-lucide="armchair" class="w-5 h-5 text-amber-500"></i>
+                        <span>توزيع كراسي المنصة الفعلي</span>
+                    </h3>
+                    
+                    <form id="protocol-seating-form" onsubmit="handleProtocolSeating(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">اختر ضيف معتمد <span class="text-red-500">*</span></label>
+                            <select id="prot-guest-select" required class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2.5 bg-white font-semibold focus:ring-2 focus:ring-amber-500 outline-none">
+                                <!-- يتم تعبئة الضيوف الموافقين الذين لم يتم تسكينهم بعد -->
+                            </select>
+                        </div>
+
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-3">
+                            <span class="block text-xs font-bold text-slate-700">تخصيص موقع الكرسي بالمنصة</span>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">الصف</label>
+                                    <select id="prot-row-select" onchange="adaptProtocolSeats()" class="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white font-mono font-bold outline-none"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">رقم المقعد</label>
+                                    <select id="prot-seat-select" class="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white font-mono font-bold outline-none"></select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-dark font-black py-2.5 rounded-xl transition-all text-xs flex justify-center items-center gap-1.5 shadow-md">
+                            <i data-lucide="pin" class="w-4 h-4"></i> تثبيت الضيف على الكرسي
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- لوحة إحصائيات المقاعد الحية والمربوطة بالواقع تفاعلياً -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm grid grid-cols-2 gap-4">
+                    <div class="bg-amber-50 rounded-xl p-3 border border-amber-100">
+                        <span class="text-[10px] font-bold text-amber-800 block">مقاعد VVIP المستهلكة</span>
+                        <p class="text-xl font-black text-amber-700 mt-1"><span id="stats-vvip-used">0</span> / <span class="text-xs text-amber-600" id="stats-vvip-total">50</span></p>
+                    </div>
+                    <div class="bg-blue-50 rounded-xl p-3 border border-blue-100">
+                        <span class="text-[10px] font-bold text-blue-800 block">مقاعد VIP المستهلكة</span>
+                        <p class="text-xl font-black text-blue-700 mt-1"><span id="stats-vip-used">0</span> / <span class="text-xs text-blue-600" id="stats-vip-total">80</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- القسم الأيسر: المنصة الكبيرة التفاعلية وتوزيع الكراسي وقائمة الضيوف -->
+            <div class="w-full lg:flex-1 flex flex-col gap-6">
+                
+                <!-- تبويبات العرض (الجدول، المخطط 2D، والمقصورة 3D) -->
+                <div class="border-b border-gray-200 bg-white px-4 py-2 flex justify-between items-center shrink-0">
+                    <div class="flex bg-gray-100 p-1 rounded-xl">
+                        <button onclick="switchViewTab('visual')" id="tab-visual-btn" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white text-dark shadow-sm">الرادار والمنصة (2D)</button>
+                        <button onclick="switchViewTab('3d')" id="tab-3d-btn" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-gray-500 hover:text-dark">المقصورة التفاعلية (3D VVIP)</button>
+                    </div>
+                </div>
+
+                <!-- وعاء تبويب الرادار والمخطط ثنائي الأبعاد 2D -->
+                <div id="visual-platform-container" class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col flex-1 min-h-[450px]">
+                    <div class="flex flex-col sm:flex-row justify-between items-center pb-3 border-b border-slate-100 gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                            <h4 class="font-heading font-black text-sm text-dark">رادار توزيع مقاعد المنصة الفعلي</h4>
+                        </div>
+                        
+                        <!-- نظام وخيارات الطباعة المتقدمة للمنصة -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="printPlatform(false)" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1 font-bold">
+                                <i data-lucide="printer" class="w-3.5 h-3.5"></i> طباعة المنصة
+                            </button>
+                            <button onclick="printPlatform(true)" class="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-300 flex items-center gap-1 font-bold">
+                                <i data-lucide="user-check" class="w-3.5 h-3.5"></i> طباعة بالأسماء
+                            </button>
+                        </div>
+
+                        <!-- دليل ألوان الحالات والمنصات -->
+                        <div class="flex flex-wrap gap-4 text-[10px] font-bold text-gray-500">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-3 h-3 bg-slate-100 border border-slate-200 rounded"></span>
+                                <span>شاغر (متاح)</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-3 h-3 bg-amber-500 border border-amber-600 rounded"></span>
+                                <span class="text-amber-800">موافق VVIP (حجز مؤكد)</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-3 h-3 bg-blue-500 border border-blue-600 rounded"></span>
+                                <span class="text-blue-800">موافق VIP (حجز مؤكد)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- مساحة العرض الرقمي للمنصة -->
+                    <div class="flex-1 flex flex-col justify-center items-center py-6 overflow-auto">
+                        <div class="w-full max-w-4xl space-y-6">
+                            
+                            <!-- المنصة الأولى الـ VVIP -->
+                            <div class="bg-amber-50/50 p-4 rounded-2xl border border-amber-200/60 relative">
+                                <span class="absolute -top-3 right-4 bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-black px-3 py-0.5 rounded-full flex items-center gap-1">
+                                    <i data-lucide="crown" class="w-3.5 h-3.5 text-amber-700"></i>
+                                    منصة الصفوف الأمامية الفاخرة VVIP
+                                </span>
+                                
+                                <div class="space-y-2 mt-2" id="vvip-stage-rows">
+                                    <!-- سيتم توليد صفوف VVIP ديناميكياً -->
+                                </div>
+                            </div>
+
+                            <!-- المنصة الثانية الـ VIP -->
+                            <div class="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 relative">
+                                <span class="absolute -top-3 right-4 bg-blue-100 border border-blue-200 text-blue-800 text-[10px] font-black px-3 py-0.5 rounded-full flex items-center gap-1">
+                                    <i data-lucide="award" class="w-3.5 h-3.5 text-blue-700"></i>
+                                    منصة الصفوف الخلفية والمرافقين VIP
+                                </span>
+                                
+                                <div class="space-y-2 mt-2" id="vip-stage-rows">
+                                    <!-- سيتم توليد صفوف VIP ديناميكياً -->
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-200/60 rounded-xl p-2.5 text-center text-xs text-slate-500 flex items-center justify-center gap-1.5">
+                        <i data-lucide="help-circle" class="w-4 h-4 text-slate-400"></i>
+                        <span>انقر فوق أي كرسي ملون لرؤية اسم الضيف، أو انقر فوق كرسي شاغر لتحديده مباشرة بالإستمارة.</span>
+                    </div>
+                </div>
+
+                <!-- وعاء تبويب المحاكاة ثلاثية الأبعاد (3D VVIP Interactive Cabin) -->
+                <div id="3d-platform-container" class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-sm flex flex-col flex-1 min-h-[450px] hidden relative overflow-hidden">
+                    <!-- واجهة تحميل ومعلومات المقصورة ثلاثية الأبعاد -->
+                    <div id="canvas3d-loading" class="absolute inset-0 z-30 flex flex-col items-center justify-center text-white">
+                        <div class="bg-slate-800/90 p-6 rounded-2xl border border-amber-500/20 text-center max-w-sm mx-4 space-y-3">
+                            <i data-lucide="loader-2" class="w-10 h-10 text-amber-500 animate-spin mx-auto"></i>
+                            <h4 class="font-bold text-amber-400 text-sm">جاري تحميل المنظور ثلاثي الأبعاد...</h4>
+                            <p class="text-xs text-gray-300 leading-relaxed">
+                                انقر واسحب بالفأرة لتدوير الكاميرا حول المقصورة. استخدم عجلة الماوس (Scroll) للتقريب. انقر على أي كرسي للتحكم المباشر بحجزه!
+                            </p>
+                            <button onclick="dismiss3DLoading()" class="bg-amber-500 hover:bg-amber-600 text-dark font-extrabold text-xs py-1.5 px-4 rounded-lg transition-colors">
+                                دخول المقصورة الآن
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="absolute bottom-4 left-4 z-20 flex gap-2">
+                        <button onclick="reset3DCamera()" class="bg-slate-800/90 text-white hover:bg-amber-500 hover:text-dark p-2 rounded-xl transition-all border border-slate-700 flex items-center gap-1 text-xs font-bold shadow-lg">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> إعادة توجيه الكاميرا
+                        </button>
+                    </div>
+
+                    <div class="absolute top-4 right-4 z-20 bg-dark/80 backdrop-blur border border-amber-500/20 px-3 py-1.5 rounded-lg text-white text-[10px] font-semibold flex items-center gap-1.5 shadow-md">
+                        <span class="w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse"></span>
+                        محاكاة حية لمقصورة VVIP ثلاثية الأبعاد تفاعلية
+                    </div>
+
+                    <div class="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-emerald-950/20 to-transparent pointer-events-none z-10 flex items-end justify-center pb-2">
+                        <span class="text-[10px] text-emerald-400 font-bold tracking-widest uppercase">اتجاه أرضية الملعب الأخضر 🏟️</span>
+                    </div>
+
+                    <!-- حاوية كانفاس Three.js -->
+                    <div id="canvas-3d-holder" class="w-full h-full absolute inset-0 cursor-grab active:cursor-grabbing"></div>
+                </div>
+                
+                <!-- قائمة وجدول تفصيلي لفرز وبحث كافة الضيوف -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm h-[300px] flex flex-col overflow-hidden">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100 shrink-0 gap-3">
+                        <h4 class="font-heading font-bold text-sm text-dark flex items-center gap-1.5">
+                            <i data-lucide="users" class="w-4.5 h-4.5 text-primary"></i>
+                            سجل أسماء وبيانات الضيوف المسجلة
+                        </h4>
+                        
+                        <div class="flex items-center gap-2">
+                            <!-- تصدير كشف كامل مهيأ للطباعة والإكسل - يظهر للجميع ولكن ذو فائدة كبرى للعلاقات -->
+                            <button onclick="exportGuestsExcel()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg flex items-center gap-1 font-bold shrink-0">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> تصدير كشف إكسل للطباعة
+                            </button>
+                            
+                            <!-- شريط البحث السريع والفلترة -->
+                            <div class="relative w-48 sm:w-64">
+                                <i data-lucide="search" class="w-4 h-4 absolute right-2.5 top-2.5 text-slate-400"></i>
+                                <input type="text" id="table-search" oninput="renderTable()" placeholder="ابحث باسم الضيف أو هاتفه..." class="w-full text-xs border border-gray-300 rounded-lg pr-8 pl-3 py-2 outline-none focus:ring-1 focus:ring-primary">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-auto no-scrollbar relative">
+                        <table class="w-full text-right border-collapse">
+                            <thead class="bg-slate-50 sticky top-0 z-10 text-[10px] text-gray-500 font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="p-3">الاسم والجهة</th>
+                                    <th class="p-3">رقم الهاتف</th>
+                                    <th class="p-3">الكرسي</th>
+                                    <th class="p-3">الفئة</th>
+                                    <th class="p-3">حالة الحضور</th>
+                                    <th class="p-3 text-center">إرسال الدعوة</th>
+                                    <th class="p-3 text-center">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="guests-table-body" class="divide-y divide-gray-100 text-xs">
+                                <!-- جدول الضيوف يتم حقنه هنا -->
+                            </tbody>
+                        </table>
+                        
+                        <!-- واجهة القائمة الفارغة -->
+                        <div id="empty-state" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center text-gray-400">
+                            <i data-lucide="contact-2" class="w-10 h-10 text-gray-300 mb-2"></i>
+                            <p class="text-xs font-bold text-gray-600">لا يوجد ضيوف مسجلين حالياً</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // تكوين الكراسي المتاحة وهيكلة القاعة الأساسية الافتراضية
+        const DEFAULT_CONFIG = {
+            VVIP: {
+                rows: ['A', 'B', 'C', 'D', 'E'],
+                seatsPerRow: 10
+            },
+            VIP: {
+                rows: ['F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'],
+                seatsPerRow: 10
+            }
+        };
+
+        // مصفوفة حفظ جميع الفعاليات والمستخدمين
+        let events = [];
+        let currentEventId = '';
+        let registeredUsers = [];
+        let currentUser = null;
+        let activeViewTab = 'visual'; // visual / 3d
+
+        // متغيرات Three.js الخاصة بالمقصورة ثلاثية الأبعاد
+        let scene3D, camera3D, renderer3D, controls3D;
+        let clickableObjects3D = [];
+        let chairGroupMap3D = new Map();
+        let raycaster3D, mouse3D;
+
+        // تهيئة التطبيق عند فتح الصفحة
+        function initApp() {
+            lucide.createIcons();
+            
+            // تهيئة نظام المستخدمين
+            initAuthSystem();
+
+            // قراءة الفعاليات والفعالية النشطة من الذاكرة المحلية
+            const storedEvents = localStorage.getItem('arena_events_system_v3');
+            const storedCurrentEventId = localStorage.getItem('arena_current_event_id_v3');
+
+            if (storedEvents && storedCurrentEventId) {
+                events = JSON.parse(storedEvents);
+                currentEventId = storedCurrentEventId;
+            } else {
+                // إذا لم توجد بيانات سابقة، نقوم بإنشاء الفعالية التلقائية الأولى
+                const defaultEventId = 'ev_' + Date.now();
+                events = [{
+                    id: defaultEventId,
+                    name: "نهائي كأس خادم الحرمين الشريفين",
+                    location: "استاد الملك فهد الدولي",
+                    date: "2026-05-17",
+                    seatingConfig: JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
+                    guests: []
+                }];
+                currentEventId = defaultEventId;
+            }
+
+            // تفعيل مستمع النموذج
+            document.getElementById('guest-form').addEventListener('submit', handleFormSubmit);
+            document.getElementById('event-form').addEventListener('submit', handleEventFormSubmit);
+            document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
+
+            // تهيئة تتبع Raycast للـ 3D
+            raycaster3D = new THREE.Raycaster();
+            mouse3D = new THREE.Vector2();
+
+            // الاستماع إلى حجم الشاشة لإعادة تعيين المشهد 3D عند التغيير
+            window.addEventListener('resize', onWindowResize3D);
+
+            // التحقق من الجلسة النشطة الحالية
+            checkUserSession();
+        }
+
+        // ==================== نظام التوثيق والمستخدمين ====================
+        
+        function initAuthSystem() {
+            const storedUsers = localStorage.getItem('arena_registered_users');
+            if (storedUsers) {
+                registeredUsers = JSON.parse(storedUsers);
+            } else {
+                // إدراج الحسابات الافتراضية بالأدوار الجديدة
+                registeredUsers = [
+                    { username: 'admin', password: 'admin123', name: 'المدير الرئيسي', role: 'admin' },
+                    { username: 'relations', password: 'rel123', name: 'العلاقات الدولية', role: 'relations' },
+                    { username: 'protocol', password: 'prot123', name: 'المراسم', role: 'protocol' }
+                ];
+                localStorage.setItem('arena_registered_users', JSON.stringify(registeredUsers));
+            }
+        }
+
+        function checkUserSession() {
+            const session = localStorage.getItem('arena_active_session');
+            if (session) {
+                currentUser = JSON.parse(session);
+                showMainLayout();
+            } else {
+                showAuthLayout();
+            }
+        }
+
+        function showAuthLayout() {
+            document.getElementById('auth-container').classList.remove('hidden');
+            document.getElementById('main-app-layout').classList.add('hidden');
+            resetForm();
+        }
+
+        function showMainLayout() {
+            document.getElementById('auth-container').classList.add('hidden');
+            document.getElementById('main-app-layout').classList.remove('hidden');
+            document.getElementById('user-display-name').innerText = `${currentUser.name} (${getUserRoleName(currentUser.role)})`;
+            
+            // تطبيق الأدوار على مستوى الـ DOM من خلال فئات الـ CSS
+            document.body.className = "text-gray-800 h-screen flex flex-col overflow-hidden font-sans bg-slate-50";
+            if (currentUser.role === 'relations') {
+                document.body.classList.add('relations-user');
+            } else if (currentUser.role === 'protocol') {
+                document.body.classList.add('protocol-user');
+            } else {
+                document.body.classList.add('admin-user');
+            }
+
+            // تهيئة واجهات الفعاليات والمقاعد بعد تسجيل الدخول بنجاح
+            updateEventsSelect();
+            syncActiveEventData();
+        }
+
+        function getUserRoleName(role) {
+            if (role === 'relations') return 'العلاقات الدولية';
+            if (role === 'protocol') return 'المراسم';
+            return 'المدير العام';
+        }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const usernameInput = document.getElementById('auth-username').value.trim();
+            const passwordInput = document.getElementById('auth-password').value.trim();
+            const mode = document.getElementById('auth-mode').value;
+
+            if (mode === 'login') {
+                const matchedUser = registeredUsers.find(u => u.username.toLowerCase() === usernameInput.toLowerCase() && u.password === passwordInput);
+                if (matchedUser) {
+                    currentUser = matchedUser;
+                    localStorage.setItem('arena_active_session', JSON.stringify(currentUser));
+                    showToast(`أهلاً بك مجدداً، ${currentUser.name}!`, 'success');
+                    showMainLayout();
+                } else {
+                    showToast('خطأ: اسم المستخدم أو كلمة المرور غير صحيحة!', 'error');
+                }
+            } else {
+                const userExists = registeredUsers.some(u => u.username.toLowerCase() === usernameInput.toLowerCase());
+                if (userExists) {
+                    showToast('خطأ: اسم المستخدم هذا مسجل مسبقاً في النظام!', 'error');
+                    return;
+                }
+
+                const selectedRole = document.getElementById('auth-role').value;
+                const newUser = {
+                    username: usernameInput,
+                    password: passwordInput,
+                    name: usernameInput,
+                    role: selectedRole
+                };
+
+                registeredUsers.push(newUser);
+                localStorage.setItem('arena_registered_users', JSON.stringify(registeredUsers));
+                showToast('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.', 'success');
+                toggleAuthMode();
+            }
+        }
+
+        function handleLogout() {
+            if (confirm('هل أنت متأكد من رغبتك في تسجيل الخروج؟')) {
+                currentUser = null;
+                localStorage.removeItem('arena_active_session');
+                document.getElementById('auth-username').value = '';
+                document.getElementById('auth-password').value = '';
+                showAuthLayout();
+                showToast('تم تسجيل الخروج بنجاح. نراك لاحقاً!', 'success');
+            }
+        }
+
+        function toggleAuthMode() {
+            const modeInput = document.getElementById('auth-mode');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const title = document.getElementById('auth-title');
+            const subtitle = document.getElementById('auth-subtitle');
+            const toggleText = document.getElementById('auth-toggle-text');
+            const toggleBtn = document.getElementById('auth-toggle-btn');
+            const roleWrapper = document.getElementById('auth-role-wrapper');
+
+            if (modeInput.value === 'login') {
+                modeInput.value = 'register';
+                title.innerText = 'إنشاء حساب مستخدم جديد';
+                subtitle.innerText = 'سجل بياناتك لإضافة حساب منظم إضافي للنظام';
+                submitBtn.innerText = 'إنشاء الحساب وتفعيل التسجيل';
+                toggleText.innerText = 'لديك حساب بالفعل؟';
+                toggleBtn.innerText = 'سجل دخولك من هنا';
+                roleWrapper.classList.remove('hidden');
+            } else {
+                modeInput.value = 'login';
+                title.innerText = 'نظام توزيع دعوات كبار الشخصيات';
+                subtitle.innerText = 'يرجى تسجيل الدخول للوصول إلى لوحة التحكم';
+                submitBtn.innerText = 'تسجيل الدخول';
+                toggleText.innerText = 'ليس لديك حساب؟';
+                toggleBtn.innerText = 'إنشاء حساب جديد';
+                roleWrapper.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        // ==================== إدارة الفعاليات وتوزيع الكراسي ====================
+
+        function getActiveEvent() {
+            return events.find(e => e.id === currentEventId) || events[0];
+        }
+
+        function syncActiveEventData() {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            document.getElementById('info-event-name').innerText = activeEvent.name;
+            document.getElementById('info-event-location').innerText = activeEvent.location;
+            
+            const dateObj = new Date(activeEvent.date);
+            const formattedDate = dateObj.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('info-event-date').innerText = formattedDate || activeEvent.date;
+
+            // تحديث عناوين الطباعة الورقية المخفية بالخلفية
+            document.getElementById('print-header-event-name').innerText = activeEvent.name;
+            document.getElementById('print-header-event-info').innerText = `${activeEvent.location} | التاريخ: ${formattedDate || activeEvent.date}`;
+
+            updateConfigUI();
+            adaptSeatOptions();
+            renderVisualPlatform();
+            renderTable();
+            updateStats();
+            
+            // تهيئة واجهات ونماذج التوزيع المخصصة للمراسم
+            if (currentUser.role === 'protocol' || currentUser.role === 'admin') {
+                updateProtocolGuestsDropdown();
+                adaptProtocolRows();
+            }
+
+            // تحديث فوري للمقصورة ثلاثية الأبعاد إذا كان التبويب نشطاً
+            if (activeViewTab === '3d') {
+                update3DChairs();
+            }
+        }
+
+        function updateEventsSelect() {
+            const select = document.getElementById('active-event-select');
+            if (!select) return;
+            select.innerHTML = '';
+
+            events.forEach(ev => {
+                const opt = document.createElement('option');
+                opt.value = ev.id;
+                opt.innerText = `${ev.name} (${ev.date})`;
+                if (ev.id === currentEventId) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+        }
+
+        function changeActiveEvent(eventId) {
+            currentEventId = eventId;
+            localStorage.setItem('arena_current_event_id_v3', currentEventId);
+            syncActiveEventData();
+            showToast('تم الانتقال إلى الفعالية المحددة ومزامنة مقاعدها بنجاح', 'success');
+        }
+
+        // فتح نموذج الفعالية
+        function openAddEventModal() {
+            document.getElementById('event-modal-title').innerHTML = `<i data-lucide="calendar-plus" class="w-5.5 h-5.5 text-primary"></i> إضافة فعالية جديدة للمنصة`;
+            document.getElementById('event-form').reset();
+            document.getElementById('edit-event-id').value = '';
+            document.getElementById('event-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function openEditEventModal() {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            document.getElementById('event-modal-title').innerHTML = `<i data-lucide="edit" class="w-5.5 h-5.5 text-primary"></i> تعديل تفاصيل الفعالية`;
+            document.getElementById('edit-event-id').value = activeEvent.id;
+            document.getElementById('ev-input-name').value = activeEvent.name;
+            document.getElementById('ev-input-location').value = activeEvent.location;
+            document.getElementById('ev-input-date').value = activeEvent.date;
+            
+            document.getElementById('event-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeEventModal() {
+            document.getElementById('event-modal').classList.add('hidden');
+        }
+
+        function handleEventFormSubmit(e) {
+            e.preventDefault();
+
+            const editId = document.getElementById('edit-event-id').value;
+            const name = document.getElementById('ev-input-name').value.trim();
+            const location = document.getElementById('ev-input-location').value.trim();
+            const date = document.getElementById('ev-input-date').value;
+
+            if (editId) {
+                const evIndex = events.findIndex(ev => ev.id === editId);
+                if (evIndex !== -1) {
+                    events[evIndex].name = name;
+                    events[evIndex].location = location;
+                    events[evIndex].date = date;
+                    showToast('تم تعديل بيانات الفعالية بنجاح', 'success');
+                }
+            } else {
+                const newId = 'ev_' + Date.now();
+                events.push({
+                    id: newId,
+                    name: name,
+                    location: location,
+                    date: date,
+                    seatingConfig: JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
+                    guests: []
+                });
+                currentEventId = newId;
+                showToast('تمت إضافة الفعالية الجديدة وتفعيل تسكين مقاعدها تلقائياً', 'success');
+            }
+
+            saveEventsToLocalStorage();
+            updateEventsSelect();
+            syncActiveEventData();
+            closeEventModal();
+        }
+
+        function deleteActiveEvent() {
+            if (events.length <= 1) {
+                showToast('خطأ: لا يمكن حذف هذه الفعالية. لابد من وجود فعالية واحدة نشطة في النظام على الأقل!', 'error');
+                return;
+            }
+
+            const activeEvent = getActiveEvent();
+            if (confirm(`هل أنت متأكد تماماً من حذف فعالية (${activeEvent.name}) بالكامل مع جميع الضيوف والترتيبات؟`)) {
+                events = events.filter(ev => ev.id !== currentEventId);
+                currentEventId = events[0].id;
+                
+                saveEventsToLocalStorage();
+                updateEventsSelect();
+                syncActiveEventData();
+                showToast('تم حذف الفعالية وكل سجلاتها وإعادة التوجيه للفعالية الأساسية', 'success');
+            }
+        }
+
+        function saveEventsToLocalStorage() {
+            localStorage.setItem('arena_events_system_v3', JSON.stringify(events));
+            localStorage.setItem('arena_current_event_id_v3', currentEventId);
+        }
+
+        function updateConfigUI() {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+            document.getElementById('config-vvip-rows-count').innerText = activeEvent.seatingConfig.VVIP.rows.length;
+            document.getElementById('config-vvip-seats-count').innerText = activeEvent.seatingConfig.VVIP.seatsPerRow;
+            document.getElementById('config-vip-rows-count').innerText = activeEvent.seatingConfig.VIP.rows.length;
+            document.getElementById('config-vip-seats-count').innerText = activeEvent.seatingConfig.VIP.seatsPerRow;
+        }
+
+        function adjustLayout(category, type, delta) {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const config = activeEvent.seatingConfig[category];
+            
+            if (type === 'rows') {
+                const currentCount = config.rows.length;
+                const newCount = currentCount + delta;
+                
+                if (newCount < 1) {
+                    showToast('يجب أن يحتوي المدرج على صف واحد على الأقل!', 'error');
+                    return;
+                }
+                if (newCount > 15) {
+                    showToast('الحد الأقصى المسموح به هو 15 صفاً لسلامة العرض!', 'error');
+                    return;
+                }
+
+                if (category === 'VVIP') {
+                    config.rows = generateAlphabetRows(newCount, 'A');
+                    const lastVvipCharCode = config.rows[config.rows.length - 1].charCodeAt(0);
+                    const startVipChar = String.fromCharCode(lastVvipCharCode + 1);
+                    activeEvent.seatingConfig.VIP.rows = generateAlphabetRows(activeEvent.seatingConfig.VIP.rows.length, startVipChar);
+                } else {
+                    const vvipLastChar = activeEvent.seatingConfig.VVIP.rows[activeEvent.seatingConfig.VVIP.rows.length - 1];
+                    const startVipChar = String.fromCharCode(vvipLastChar.charCodeAt(0) + 1);
+                    config.rows = generateAlphabetRows(newCount, startVipChar);
+                }
+
+            } else if (type === 'seats') {
+                const newSeats = config.seatsPerRow + delta;
+                if (newSeats < 5) {
+                    showToast('يجب أن يحتوي الصف على 5 مقاعد على الأقل لجمالية التنظيم!', 'error');
+                    return;
+                }
+                if (newSeats > 15) {
+                    showToast('الحد الأقصى هو 15 مقعداً لكل صف لمنع ضيق المنصة!', 'error');
+                    return;
+                }
+                config.seatsPerRow = newSeats;
+            }
+
+            sanitizeGuestsAfterLayoutChange();
+            saveEventsToLocalStorage();
+            updateConfigUI();
+            adaptSeatOptions();
+            renderVisualPlatform();
+            renderTable();
+            updateStats();
+        }
+
+        function sanitizeGuestsAfterLayoutChange() {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            let affectedGuests = [];
+
+            activeEvent.guests.forEach(g => {
+                if (g.approval === 'approved' && g.row && g.seatNum) {
+                    const config = activeEvent.seatingConfig[g.category];
+                    const isRowValid = config.rows.includes(g.row);
+                    const isSeatValid = parseInt(g.seatNum) <= config.seatsPerRow;
+
+                    if (!isRowValid || !isSeatValid) {
+                        g.row = null; // إزالة تعيين المقعد
+                        g.seatNum = null;
+                        affectedGuests.push(g.name);
+                    }
+                }
+            });
+
+            if (affectedGuests.length > 0) {
+                setTimeout(() => {
+                    const formattedNames = affectedGuests.slice(0, 3).join('، ') + (affectedGuests.length > 3 ? ' وثلة آخرين' : '');
+                    showToast(`تنبيه المراسم: تم إزالة حجز المقعد لكل من (${formattedNames}) بسبب تصغير أبعاد المنصة، وهم بحاجة لإعادة التوزيع.`, 'error');
+                }, 500);
+            }
+        }
+
+        // تهيئة قائمة الكراسي لنموذج العلاقات العامة
+        function adaptSeatOptions() {
+            const categorySelect = document.getElementById('g-input-category');
+            if (!categorySelect) return;
+            const category = categorySelect.value;
+            const rowSelect = document.getElementById('g-input-row');
+            const seatSelect = document.getElementById('g-input-seatnum');
+            
+            if (!rowSelect || !seatSelect) return;
+            
+            rowSelect.innerHTML = '';
+            seatSelect.innerHTML = '';
+
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const config = activeEvent.seatingConfig[category];
+            if (!config) return;
+            
+            config.rows.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r;
+                opt.innerText = `الصف ${r}`;
+                rowSelect.appendChild(opt);
+            });
+
+            for (let i = 1; i <= config.seatsPerRow; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.innerText = `مقعد ${i}`;
+                seatSelect.appendChild(opt);
+            }
+        }
+
+        // ==================== وظائف مراسم توزيع الكراسي ====================
+
+        // تحديث منسدل الضيوف المؤكدين غير المسكنين
+        function updateProtocolGuestsDropdown() {
+            const select = document.getElementById('prot-guest-select');
+            if (!select) return;
+            select.innerHTML = '';
+
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const unseatedGuests = activeEvent.guests.filter(g => g.approval === 'approved' && (!g.row || !g.seatNum));
+
+            if (unseatedGuests.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = "";
+                opt.innerText = "لا يوجد ضيوف بانتظار التسكين";
+                select.appendChild(opt);
+                select.disabled = true;
+            } else {
+                select.disabled = false;
+                unseatedGuests.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.innerText = `${g.name} (${g.job} - ${g.category})`;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        // : تهيئة صفوف المراسم بناءً على فئة الضيف المحدد بالمنسدل
+        function adaptProtocolRows() {
+            const select = document.getElementById('prot-guest-select');
+            const rowSelect = document.getElementById('prot-row-select');
+            if (!select || !rowSelect) return;
+
+            const guestId = select.value;
+            const activeEvent = getActiveEvent();
+            if (!activeEvent || !guestId) return;
+
+            const guest = activeEvent.guests.find(g => g.id == guestId);
+            if (!guest) return;
+
+            rowSelect.innerHTML = '';
+            const config = activeEvent.seatingConfig[guest.category];
+            
+            config.rows.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r;
+                opt.innerText = `الصف ${r}`;
+                rowSelect.appendChild(opt);
+            });
+
+            adaptProtocolSeats();
+        }
+
+        // تهيئة كراسي المراسم المتاحة فقط لعدم التكرار
+        function adaptProtocolSeats() {
+            const select = document.getElementById('prot-guest-select');
+            const rowSelect = document.getElementById('prot-row-select');
+            const seatSelect = document.getElementById('prot-seat-select');
+            if (!select || !rowSelect || !seatSelect) return;
+
+            const guestId = select.value;
+            const row = rowSelect.value;
+            const activeEvent = getActiveEvent();
+            if (!activeEvent || !guestId || !row) return;
+
+            const guest = activeEvent.guests.find(g => g.id == guestId);
+            if (!guest) return;
+
+            seatSelect.innerHTML = '';
+            const config = activeEvent.seatingConfig[guest.category];
+
+            // البحث عن الكراسي غير المحجوزة في هذا الصف
+            for (let i = 1; i <= config.seatsPerRow; i++) {
+                const isTaken = isSeatTaken(guest.category, row, i);
+                if (!isTaken) {
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    opt.innerText = `مقعد ${i}`;
+                    seatSelect.appendChild(opt);
+                }
+            }
+        }
+
+        // ربط مستمع تغيير الضيف في المراسم
+        document.getElementById('prot-guest-select').addEventListener('change', adaptProtocolRows);
+
+        // معالجة تسكين وتوزيع الكراسي من قبل المراسم
+        function handleProtocolSeating(e) {
+            e.preventDefault();
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const guestId = document.getElementById('prot-guest-select').value;
+            const row = document.getElementById('prot-row-select').value;
+            const seatNum = parseInt(document.getElementById('prot-seat-select').value);
+
+            if (!guestId || !row || !seatNum) {
+                showToast('تنبيه المراسم: يرجى اختيار ضيف وتحديد صف ومقعد شاغر للتسكين!', 'error');
+                return;
+            }
+
+            const guest = activeEvent.guests.find(g => g.id == guestId);
+            if (!guest) return;
+
+            if (isSeatTaken(guest.category, row, seatNum)) {
+                showToast('خطأ المراسم: هذا المقعد محجوز لضيف آخر!', 'error');
+                return;
+            }
+
+            // تخصيص الكرسي للضيف
+            guest.row = row;
+            guest.seatNum = seatNum;
+
+            showToast(`تم تسكين الضيف (${guest.name}) في المقعد ${row}-${seatNum} بنجاح`, 'success');
+            
+            saveEventsToLocalStorage();
+            syncActiveEventData();
+        }
+
+        // معالجة إرسال العلاقات العامة للدعوات وحفظ البيانات
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const editId = document.getElementById('edit-guest-id').value;
+            const name = document.getElementById('g-input-name').value.trim();
+            const job = document.getElementById('g-input-job').value.trim();
+            const phone = document.getElementById('g-input-phone').value.trim();
+            const email = document.getElementById('g-input-email').value.trim() || 'لا يوجد بريد';
+            const tickets = parseInt(document.getElementById('g-input-tickets').value) || 1;
+            const category = document.getElementById('g-input-category').value;
+            const approval = document.getElementById('g-input-approval').value;
+
+            if (editId) {
+                const index = activeEvent.guests.findIndex(g => g.id === parseFloat(editId));
+                if (index !== -1) {
+                    const oldApproval = activeEvent.guests[index].approval;
+                    
+                    // إذا تحولت حالة الحضور لغير موافق، نزيل الكرسي تلقائياً
+                    let clearSeat = false;
+                    if (approval !== 'approved' && oldApproval === 'approved') {
+                        clearSeat = true;
+                    }
+
+                    activeEvent.guests[index] = {
+                        ...activeEvent.guests[index],
+                        name, job, phone, email, tickets, category, approval,
+                        row: clearSeat ? null : activeEvent.guests[index].row,
+                        seatNum: clearSeat ? null : activeEvent.guests[index].seatNum
+                    };
+                    showToast('تم تعديل بيانات الضيف بنجاح وحفظ السجلات للجنة', 'success');
+                }
+            } else {
+                // تسجيل ضيف جديد: العلاقات العامة لا تحدد كرسي، يتم حفظه بدون كرسي
+                activeEvent.guests.push({
+                    id: Date.now(),
+                    name, job, phone, email, tickets, category, approval,
+                    row: null,
+                    seatNum: null
+                });
+                showToast('تم تسجيل بيانات الضيف الجديد بنجاح في سجلات العلاقات الدولية', 'success');
+            }
+
+            saveEventsToLocalStorage();
+            syncActiveEventData();
+            resetForm();
+        }
+
+        // تفريغ نموذج العلاقات العامة
+        function resetForm() {
+            const form = document.getElementById('guest-form');
+            if (form) form.reset();
+            
+            const editIdInput = document.getElementById('edit-guest-id');
+            if (editIdInput) editIdInput.value = '';
+            
+            const formTitle = document.getElementById('form-title');
+            if (formTitle) formTitle.innerText = 'تسجيل دعوة ضيف جديدة';
+            
+            const cancelEditBtn = document.getElementById('cancel-edit-btn');
+            if (cancelEditBtn) cancelEditBtn.classList.add('hidden');
+            
+            const categorySelect = document.getElementById('g-input-category');
+            if (categorySelect) categorySelect.disabled = false;
+            
+            adaptSeatOptions();
+        }
+
+        // تمكين العلاقات العامة أو الآدمن من تعديل بيانات الضيف
+        function editGuest(id) {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const guest = activeEvent.guests.find(g => g.id === id);
+            if (!guest) return;
+
+            document.getElementById('edit-guest-id').value = guest.id;
+            document.getElementById('g-input-name').value = guest.name;
+            document.getElementById('g-input-job').value = guest.job;
+            document.getElementById('g-input-phone').value = guest.phone;
+            document.getElementById('g-input-email').value = guest.email === 'لا يوجد بريد' ? '' : guest.email;
+            document.getElementById('g-input-tickets').value = guest.tickets;
+            document.getElementById('g-input-category').value = guest.category;
+            document.getElementById('g-input-approval').value = guest.approval;
+            
+            document.getElementById('g-input-category').disabled = true; 
+
+            document.getElementById('form-title').innerText = 'تعديل بيانات الدعوة';
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+            document.getElementById('form-relations-container').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // تصفير وإخلاء الكراسي أو تعديل الحالة بشكل دائري
+        function toggleApproval(id) {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const guest = activeEvent.guests.find(g => g.id === id);
+            if (!guest) return;
+
+            if (guest.approval === 'approved') {
+                guest.approval = 'declined';
+                guest.row = null; // تفريغ المقعد تلقائياً
+                guest.seatNum = null;
+                showToast(`تم تعيين الضيف ${guest.name} كـ (اعتذار) وإخلاء مقعده من المنصة`, 'success');
+            } else if (guest.approval === 'declined') {
+                guest.approval = 'pending';
+                showToast(`تم تعيين الضيف ${guest.name} كـ (معلق الحضور)`, 'success');
+            } else {
+                guest.approval = 'approved';
+                showToast(`تم الموافقة على الضيف ${guest.name}، بانتظار تسكينه من قبل المراسم`, 'success');
+            }
+
+            saveEventsToLocalStorage();
+            syncActiveEventData();
+        }
+
+        // حساب الإحصائيات الفورية
+        function updateStats() {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            // حساب الكراسي التي تم تسكينها بالفعل من قبل المراسم
+            const vvipUsed = activeEvent.guests.filter(g => g.approval === 'approved' && g.category === 'VVIP' && g.row && g.seatNum).length;
+            const vipUsed = activeEvent.guests.filter(g => g.approval === 'approved' && g.category === 'VIP' && g.row && g.seatNum).length;
+
+            const vvipTotal = activeEvent.seatingConfig.VVIP.rows.length * activeEvent.seatingConfig.VVIP.seatsPerRow;
+            const vipTotal = activeEvent.seatingConfig.VIP.rows.length * activeEvent.seatingConfig.VIP.seatsPerRow;
+
+            document.getElementById('stats-vvip-used').innerText = vvipUsed;
+            document.getElementById('stats-vvip-total').innerText = vvipTotal;
+            document.getElementById('stats-vip-used').innerText = vipUsed;
+            document.getElementById('stats-vip-total').innerText = vipTotal;
+        }
+
+        // بناء الرادار والمنصة الرقمية تفاعلياً 2D
+        function renderVisualPlatform() {
+            const vvipContainer = document.getElementById('vvip-stage-rows');
+            const vipContainer = document.getElementById('vip-stage-rows');
+
+            if (!vvipContainer || !vipContainer) return;
+
+            vvipContainer.innerHTML = '';
+            vipContainer.innerHTML = '';
+
+            buildSectionGrid(vvipContainer, 'VVIP');
+            buildSectionGrid(vipContainer, 'VIP');
+            
+            lucide.createIcons();
+        }
+
+        function buildSectionGrid(container, category) {
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const config = activeEvent.seatingConfig[category];
+            if (!config) return;
+            
+            config.rows.forEach(rowLetter => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'flex items-center gap-3 bg-white/80 p-2 rounded-xl border border-slate-100 shadow-sm';
+
+                const label = document.createElement('span');
+                label.className = 'w-10 text-center font-mono font-black text-sm text-dark bg-slate-100 py-1 rounded-md border border-slate-200/80';
+                label.innerText = rowLetter;
+                rowDiv.appendChild(label);
+
+                const seatsWrapper = document.createElement('div');
+                seatsWrapper.className = `flex-1 grid gap-2`;
+                seatsWrapper.style.gridTemplateColumns = `repeat(${config.seatsPerRow}, minmax(0, 1fr))`;
+
+                for (let s = 1; s <= config.seatsPerRow; s++) {
+                    const occupant = activeEvent.guests.find(g => 
+                        g.approval === 'approved' && 
+                        g.category === category && 
+                        g.row === rowLetter && 
+                        parseInt(g.seatNum) === s
+                    );
+
+                    const seatBtn = document.createElement('button');
+                    seatBtn.type = 'button';
+                    seatBtn.className = 'interactive-seat aspect-square rounded-lg flex flex-col items-center justify-center font-mono font-bold text-[10px] transition-all relative border shadow-sm';
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'print-seat-name';
+
+                    if (occupant) {
+                        nameSpan.innerText = occupant.name;
+                        
+                        if (category === 'VVIP') {
+                            seatBtn.classList.add('bg-amber-500', 'border-amber-600', 'text-white', 'hover:bg-amber-600', 'scale-105', 'shadow-amber-200');
+                            seatBtn.innerHTML = `<i data-lucide="crown" class="w-3.5 h-3.5 mb-0.5"></i> ${s}`;
+                        } else {
+                            seatBtn.classList.add('bg-blue-500', 'border-blue-600', 'text-white', 'hover:bg-blue-600', 'scale-105', 'shadow-blue-200');
+                            seatBtn.innerHTML = `<i data-lucide="award" class="w-3.5 h-3.5 mb-0.5"></i> ${s}`;
+                        }
+                        
+                        seatBtn.appendChild(nameSpan);
+                        seatBtn.onclick = () => showGuestModal(occupant);
+                    } else {
+                        nameSpan.innerText = 'شاغر';
+                        seatBtn.classList.add('bg-slate-100', 'border-slate-200', 'text-slate-400', 'hover:bg-emerald-50', 'hover:text-emerald-600', 'hover:border-emerald-300');
+                        seatBtn.innerText = s;
+                        
+                        seatBtn.appendChild(nameSpan);
+                        // إذا ضغط موظف المراسم أو الآدمن على كرسي شاغر، يتحدد تلقائياً في استمارة التوزيع
+                        seatBtn.onclick = () => selectSeatInProtocolForm(category, rowLetter, s);
+                    }
+
+                    seatsWrapper.appendChild(seatBtn);
+                }
+
+                rowDiv.appendChild(seatsWrapper);
+                container.appendChild(rowDiv);
+            });
+        }
+
+        // اختيار الكرسي من الرادار لنموذج المراسم
+        function selectSeatInProtocolForm(category, row, seatNum) {
+            if (currentUser.role === 'relations') {
+                showToast('تنبيه: لا تمتلك صلاحيات تسكين الكراسي، يرجى التنسيق مع قسم المراسم!', 'error');
+                return;
+            }
+
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            // فتح لوحة التسكين وتحديد الكرسي
+            const rowSelect = document.getElementById('prot-row-select');
+            const seatSelect = document.getElementById('prot-seat-select');
+            
+            if (rowSelect && seatSelect) {
+                rowSelect.value = row;
+                
+                const guestSelect = document.getElementById('prot-guest-select');
+                const guestId = guestSelect.value;
+                const guest = activeEvent.guests.find(g => g.id == guestId);
+                
+                if (guest) {
+                    seatSelect.innerHTML = '';
+                    const config = activeEvent.seatingConfig[guest.category];
+                    for (let i = 1; i <= config.seatsPerRow; i++) {
+                        const isTaken = isSeatTaken(guest.category, row, i);
+                        if (!isTaken || i === seatNum) {
+                            const opt = document.createElement('option');
+                            opt.value = i;
+                            opt.innerText = `مقعد ${i}`;
+                            if (i === seatNum) opt.selected = true;
+                            seatSelect.appendChild(opt);
+                        }
+                    }
+                }
+            }
+
+            showToast(`تم تحديد الكرسي المستهدف: الصف ${row} - مقعد ${seatNum} برادار المراسم`, 'success');
+        }
+
+        // دوال إنشاء رسالة ومشاركة تفاصيل التذكرة
+        function generateShareMessage(guest) {
+            const activeEvent = getActiveEvent();
+            let approvalText = 'معلق الحضور';
+            if (guest.approval === 'approved') approvalText = 'موافقة حضور مؤكدة';
+            if (guest.approval === 'declined') approvalText = 'اعتذار عن الحضور';
+
+            const dateObj = new Date(activeEvent.date);
+            const formattedDate = dateObj.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            let message = `مرحباً بك سعادة/الأستاذ ${guest.name} المحترم،\n\n`;
+            message += `يسرنا دعوتكم لحضور فعالية:\n`;
+            message += `🏆 (${activeEvent.name})\n`;
+            message += `📍 المقام في: (${activeEvent.location})\n`;
+            message += `📅 بتاريخ: (${formattedDate})\n\n`;
+            message += `تفاصيل دعوتكم الكريمة:\n`;
+            message += `• فئة الدعوة: ${guest.category === 'VVIP' ? 'كبار الشخصيات (VVIP)' : 'الشخصيات الهامة (VIP)'}\n`;
+            message += `• حالة الدعوة: ${approvalText}\n`;
+            
+            if (guest.approval === 'approved' && guest.row && guest.seatNum) {
+                message += `• موقع جلوسكم: الصف ${guest.row} - مقعد رقم ${guest.seatNum}\n`;
+            } else {
+                message += `• موقع الجلوس: يتم تخصيص المقعد تلقائياً في النظام بمجرد تحويل حالة الدعوة إلى (موافقة) وتسكينها من المراسم.\n`;
+            }
+            
+            message += `• عدد الدعوات: ${guest.tickets}\n\n`;
+            message += `نتطلع بشرف لاستقبالكم يوم الفعالية. دمتم بخير.\n`;
+            message += `— اللجنة المنظمة للمراسم`;
+            return encodeURIComponent(message);
+        }
+
+        function shareOnWhatsApp(guest) {
+            const cleanedPhone = guest.phone.replace(/[^0-9]/g, ''); 
+            const formattedPhone = cleanedPhone.startsWith('0') ? '966' + cleanedPhone.substring(1) : cleanedPhone; 
+            const message = generateShareMessage(guest);
+            
+            const whatsappUrl = `https://wa.me/${formattedPhone}?text=${message}`;
+            window.open(whatsappUrl, '_blank');
+            showToast(`تم توليد رابط الدعوة ومشاركته عبر الواتساب للضيف ${guest.name}`, 'success');
+        }
+
+        function shareOnEmail(guest) {
+            const activeEvent = getActiveEvent();
+            if (!guest.email || guest.email === 'لا يوجد بريد' || guest.email.trim() === '') {
+                showToast('تنبيه: لا يوجد بريد إلكتروني مسجل لهذا الضيف للتواصل!', 'error');
+                return;
+            }
+            const subject = encodeURIComponent(`دعوة رسمية لحضور فعالية (${activeEvent.name}) - سعادة الأستاذ ${guest.name}`);
+            const body = generateShareMessage(guest);
+            
+            const mailtoUrl = `mailto:${guest.email}?subject=${subject}&body=${body}`;
+            window.open(mailtoUrl, '_blank');
+            showToast(`جاري فتح عميل البريد الإلكتروني لإرسال الدعوة لـ ${guest.name}`, 'success');
+        }
+
+        // طباعة المنصة التفاعلية
+        function printPlatform(includeNames) {
+            const container = document.getElementById('visual-platform-container');
+            if (includeNames) {
+                container.classList.add('show-names-on-seats');
+            } else {
+                container.classList.remove('show-names-on-seats');
+            }
+            
+            setTimeout(() => {
+                window.print();
+                container.classList.remove('show-names-on-seats');
+            }, 300);
+        }
+
+        // تصدير كشف كامل ببيانات الضيوف كملف إكسل مهيأ للطباعة
+        function exportGuestsExcel() {
+            const activeEvent = getActiveEvent();
+            if(!activeEvent || activeEvent.guests.length === 0) {
+                showToast('تنبيه: لا يوجد ضيوف مسجلين في هذه الفعالية لتصدير كشفهم!', 'error');
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+            csvContent += "الاسم الكامل للضيف,الوظيفة والجهة الرسمية,رقم الجوال,البريد الإلكتروني,فئة الدعوة,حالة الحضور والموافقة,المقعد المخصص (الصف-الرقم),عدد التذاكر\n";
+
+            activeEvent.guests.forEach(g => {
+                let safeName = `"${g.name.replace(/"/g, '""')}"`;
+                let safeJob = `"${g.job.replace(/"/g, '""')}"`;
+                let safeEmail = `"${g.email.replace(/"/g, '""')}"`;
+                
+                let approvalLabel = 'بندنج / تحت الإجراء';
+                if (g.approval === 'approved') approvalLabel = 'موافقة';
+                if (g.approval === 'declined') approvalLabel = 'اعتذار عن الحضور';
+
+                let seatAllocated = (g.approval === 'approved' && g.row && g.seatNum) ? `${g.row}-${g.seatNum}` : 'غير مخصص له كرسي بعد';
+
+                let row = `${safeName},${safeJob},${g.phone},${safeEmail},${g.category},${approvalLabel},${seatAllocated},${g.tickets}`;
+                csvContent += row + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `تقرير_دعوات_${activeEvent.name.replace(/\s+/g, '_')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast('تم تصدير كشف ملف الإكسل المهيأ للطباعة بنجاح', 'success');
+        }
+
+        // عرض بطاقة تفاصيل الضيف
+        function showGuestModal(guest) {
+            const modal = document.getElementById('guest-card-modal');
+            const accentBar = document.getElementById('modal-accent-bar');
+
+            document.getElementById('modal-g-name').innerText = guest.name;
+            document.getElementById('modal-g-job').innerText = guest.job;
+            document.getElementById('modal-g-phone').innerText = guest.phone;
+            document.getElementById('modal-g-email').innerText = guest.email || 'لا يوجد بريد إلكتروني';
+            document.getElementById('modal-g-tickets').innerText = `${guest.tickets} تذاكر`;
+            document.getElementById('modal-g-seat').innerText = (guest.row && guest.seatNum) ? `الصف ${guest.row} - كرسي ${guest.seatNum}` : 'غير مسكن حالياً';
+            
+            const catSpan = document.getElementById('modal-g-category');
+            catSpan.innerText = guest.category;
+
+            const statusBadge = document.getElementById('modal-g-status-badge');
+            if (guest.approval === 'approved') {
+                statusBadge.innerText = '✔️ موافقة حضور';
+                statusBadge.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200';
+            } else if (guest.approval === 'declined') {
+                statusBadge.innerText = '❌ عدم موافقة (اعتذار)';
+                statusBadge.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200';
+            } else {
+                statusBadge.innerText = '⏳ بندنج / معلق';
+                statusBadge.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200';
+            }
+
+            if (guest.category === 'VVIP') {
+                accentBar.className = 'absolute top-0 right-0 left-0 h-2 bg-amber-500';
+                catSpan.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-200';
+            } else {
+                accentBar.className = 'absolute top-0 right-0 left-0 h-2 bg-blue-500';
+                catSpan.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800 border border-blue-200';
+            }
+
+            document.getElementById('modal-send-whatsapp').onclick = () => shareOnWhatsApp(guest);
+            document.getElementById('modal-send-email').onclick = () => shareOnEmail(guest);
+
+            document.getElementById('modal-edit-btn').onclick = () => {
+                editGuest(guest.id);
+                closeGuestModal();
+            };
+
+            document.getElementById('modal-toggle-approval').onclick = () => {
+                toggleApproval(guest.id);
+                const activeEvent = getActiveEvent();
+                showGuestModal(activeEvent.guests.find(g => g.id === guest.id));
+            };
+
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeGuestModal() {
+            document.getElementById('guest-card-modal').classList.add('hidden');
+        }
+
+        // بناء جدول سجل الضيوف بالبحث والفرز اللحظي
+        function renderTable() {
+            const tbody = document.getElementById('guests-table-body');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (!tbody) return;
+            
+            const searchInput = document.getElementById('table-search');
+            const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+            tbody.innerHTML = '';
+
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const filtered = activeEvent.guests.filter(g => 
+                g.name.toLowerCase().includes(searchVal) || 
+                g.phone.includes(searchVal) || 
+                g.job.toLowerCase().includes(searchVal)
+            );
+
+            if (filtered.length === 0) {
+                if (emptyState) emptyState.classList.remove('hidden');
+            } else {
+                if (emptyState) emptyState.classList.add('hidden');
+                
+                filtered.slice().reverse().forEach(guest => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-slate-50 transition-all group text-xs';
+
+                    const catBg = guest.category === 'VVIP' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-blue-100 text-blue-800 border-blue-200';
+                    
+                    let approvalLabel = 'بندنج / معلق';
+                    let approvalClass = 'bg-amber-100 text-amber-800 border-amber-200';
+                    let approvalIcon = 'clock';
+
+                    if (guest.approval === 'approved') {
+                        approvalLabel = 'موافقة';
+                        approvalClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                        approvalIcon = 'check-circle-2';
+                    } else if (guest.approval === 'declined') {
+                        approvalLabel = 'عدم موافقة';
+                        approvalClass = 'bg-rose-100 text-rose-800 border-rose-200';
+                        approvalIcon = 'x-circle';
+                    }
+
+                    const seatLocationText = (guest.row && guest.seatNum) ? `الصف ${guest.row} - ${guest.seatNum}` : '<span class="text-gray-400 font-normal">بانتظار التسكين</span>';
+
+                    row.innerHTML = `
+                        <td class="p-3">
+                            <div class="font-bold text-slate-800 text-xs">${guest.name}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                <i data-lucide="briefcase" class="w-3 h-3"></i> ${guest.job}
+                            </div>
+                        </td>
+                        <td class="p-3">
+                            <div class="font-mono text-[11px] text-slate-600" dir="ltr">${guest.phone}</div>
+                            <div class="text-[10px] text-slate-400 font-mono" dir="ltr">${guest.email === 'لا يوجد بريد' ? '' : guest.email}</div>
+                        </td>
+                        <td class="p-3 font-mono font-bold text-dark">${seatLocationText}</td>
+                        <td class="p-3">
+                            <span class="${catBg} px-2 py-0.5 rounded-full text-[10px] font-black border">
+                                ${guest.category}
+                            </span>
+                        </td>
+                        <td class="p-3">
+                            <button onclick="${(currentUser.role === 'relations' || currentUser.role === 'admin') ? `toggleApproval(${guest.id})` : 'void(0)'}" class="${approvalClass} px-2.5 py-1 rounded-lg text-[10px] font-bold border flex items-center gap-1 hover:opacity-80 transition-opacity">
+                                <i data-lucide="${approvalIcon}" class="w-3.5 h-3.5"></i>
+                                ${approvalLabel}
+                            </button>
+                        </td>
+                        <!-- أزرار الإرسال السريع من الجدول تفاعلياً -->
+                        <td class="p-3 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick='shareOnWhatsApp(${JSON.stringify(guest)})' class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors" title="مشاركة بالواتساب">
+                                    <i data-lucide="message-square" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick='shareOnEmail(${JSON.stringify(guest)})' class="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors" title="إرسال بالإيميل">
+                                    <i data-lucide="mail" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="p-3 text-center">
+                            <div class="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="editGuest(${guest.id})" class="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors role-relations-only" title="تعديل">
+                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteGuest(${guest.id})" class="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition-colors role-relations-only" title="حذف">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        // تعبئة تلقائية لبيانات فعاليات تجريبية متعددة ومقاعد جاهزة للتوضيح
+        function seedSampleData() {
+            const defaultEventId1 = 'ev_1';
+            const defaultEventId2 = 'ev_2';
+
+            events = [
+                {
+                    id: defaultEventId1,
+                    name: "نهائي كأس خادم الحرمين الشريفين",
+                    location: "استاد مدينة الملك عبد الله الرياضية (الجوهرة)",
+                    date: "2026-05-17",
+                    seatingConfig: JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
+                    guests: [
+                        { id: 101, name: "معالي المهندس عادل أحمد", job: "رئيس الهيئة التنفيذية", phone: "0504123567", email: "adel.ahmad@executive.gov.sa", tickets: 2, category: "VVIP", approval: "approved", row: "A", seatNum: 1 },
+                        { id: 102, name: "سعادة الدكتور طارق العبد الله", job: "عضو مجلس الشورى", phone: "0554124987", email: "dr.tariq@shura.gov.sa", tickets: 1, category: "VVIP", approval: "approved", row: "A", seatNum: 5 },
+                        { id: 103, name: "الشيخ سلمان بن راشد", job: "رئيس الوفد الخليجي المشترك", phone: "0561239845", email: "s.rashid@gcc-council.org", tickets: 4, category: "VVIP", approval: "declined", row: null, seatNum: null },
+                        { id: 104, name: "المهندسة نورة محمد السالم", job: "نائب وكيل الوزارة للتخطيط", phone: "0543210987", email: "nora.salem@planning.gov.sa", tickets: 2, category: "VIP", approval: "approved", row: "F", seatNum: 2 },
+                        { id: 105, name: "الدكتور يوسف محمود الجابر", job: "مستشار وزارة الموارد البشرية", phone: "0502345678", email: "youssef.jaber@hrsd.gov.sa", tickets: 3, category: "VIP", approval: "pending", row: null, seatNum: null }
+                    ]
+                },
+                {
+                    id: defaultEventId2,
+                    name: "مؤتمر الرياض الدولي للذكاء الاصطناعي",
+                    location: "مركز الملك عبد العزيز الدولي للمؤتمرات",
+                    date: "2026-05-17", 
+                    seatingConfig: {
+                        VVIP: { rows: ['A', 'B', 'C'], seatsPerRow: 8 },
+                        VIP: { rows: ['D', 'E', 'F', 'G'], seatsPerRow: 12 }
+                    },
+                    guests: [
+                        { id: 201, name: "البروفيسور توماس هارتون", job: "خبير الذكاء الاصطناعي التوليدي", phone: "0533119900", email: "t.harton@ai-summit.com", tickets: 1, category: "VVIP", approval: "approved", row: "A", seatNum: 1 },
+                        { id: 202, name: "سعادة الأستاذ بندر السديري", job: "رئيس المركز الوطني للبيانات", phone: "0544556677", email: "b.sudairy@data.gov.sa", tickets: 2, category: "VVIP", approval: "approved", row: "A", seatNum: 3 },
+                        { id: 203, name: "الأستاذة سارة بن قاسم", job: "مديرة الاستثمار الرقمي والابتكار", phone: "0509988776", email: "s.qasim@digital-fund.sa", tickets: 1, category: "VIP", approval: "approved", row: "D", seatNum: 5 }
+                    ]
+                }
+            ];
+
+            currentEventId = defaultEventId1;
+            saveEventsToLocalStorage();
+            updateEventsSelect();
+            syncActiveEventData();
+            showToast('تم إدراج فعاليتين منفصلتين في نفس اليوم مع حجوزات وتخطيط مقاعد مخصص لكل منهما!', 'success');
+        }
+
+        function clearAllData() {
+            if (confirm('هل أنت متأكد من تصفير وإخلاء كافة بيانات الضيوف والفعاليات بالكامل؟')) {
+                localStorage.removeItem('arena_events_system_v3');
+                localStorage.removeItem('arena_current_event_id_v3');
+                localStorage.removeItem('arena_guests_system');
+                localStorage.removeItem('arena_seating_config');
+                
+                // إعادة التهيئة التلقائية
+                scene3D = null;
+                initApp();
+                showToast('تم تصفير النظام وإعادة تهيئته للوضع الافتراضي', 'success');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            
+            const toast = document.createElement('div');
+            
+            const isError = type === 'error';
+            const bgColor = isError ? 'bg-red-500' : 'bg-slate-900';
+            const icon = isError ? 'alert-circle' : 'check-circle';
+            const textColor = 'text-white';
+            const iconColor = isError ? 'text-white' : 'text-emerald-400';
+            
+            toast.className = `toast-enter ${bgColor} ${textColor} px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-white/10 min-w-[320px] max-w-md bg-emerald-500`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-5 h-5 ${iconColor} shrink-0"></i>
+                <span class="font-semibold text-xs leading-relaxed">${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // ==================== تبويبات العرض (2D / 3D) ====================
+        function switchViewTab(tabName) {
+            activeViewTab = tabName;
+            
+            const btnVisual = document.getElementById('tab-visual-btn');
+            const btn3d = document.getElementById('tab-3d-btn');
+
+            const containerVisual = document.getElementById('visual-platform-container');
+            const container3d = document.getElementById('3d-platform-container');
+
+            // تصفير المظهر للأزرار
+            [btnVisual, btn3d].forEach(btn => {
+                btn.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-gray-500 hover:text-dark";
+            });
+
+            containerVisual.classList.add('hidden');
+            container3d.classList.add('hidden');
+
+            if (tabName === 'visual') {
+                btnVisual.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white text-dark shadow-sm";
+                containerVisual.classList.remove('hidden');
+                renderVisualPlatform();
+            } else if (tabName === '3d') {
+                btn3d.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white text-dark shadow-sm";
+                container3d.classList.remove('hidden');
+                
+                // تهيئة مشهد الـ 3D بعد فتح الشاشة لضمان الحصول على مقاسات صحيحة للحاوية
+                setTimeout(init3DScene, 100);
+            }
+        }
+
+        // =================================================================
+        //   محاكي المقصورة التفاعلية ثلاثية الأبعاد (3D VVIP Cabin Engine)
+        // =================================================================
+
+        // دالة مخصصة لإنشاء خلفية دائرية الحواف لنصوص الـ Canvas ثلاثية الأبعاد لتعمل بشكل متوافق تماماً
+        function drawRoundRectSafe(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        function init3DScene() {
+            const container = document.getElementById('canvas-3d-holder');
+            if (!container) return;
+
+            // إذا تم إنشاء المشهد مسبقاً، نقوم بتحديث الكراسي ومطابقة الحجم فقط
+            if (scene3D) {
+                onWindowResize3D();
+                update3DChairs();
+                animate3D(); // إستئناف حلقة الرندر عند العودة للتبويب
+                return;
+            }
+
+            const width = container.clientWidth || window.innerWidth * 0.55;
+            const height = container.clientHeight || 550;
+
+            // 1. إنشاء المشهد والإضاءة الدافئة
+            scene3D = new THREE.Scene();
+            scene3D.background = new THREE.Color(0x0f172a); // كحلي داكن متوافق مع لوحة التحكم
+            scene3D.fog = new THREE.FogExp2(0x0f172a, 0.015);
+
+            // 2. الكاميرا والمنظور
+            camera3D = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            reset3DCamera();
+
+            // 3. المصيّر الـ 3D (Renderer)
+            renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer3D.setSize(width, height);
+            renderer3D.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer3D.shadowMap.enabled = true;
+            renderer3D.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            container.innerHTML = '';
+            container.appendChild(renderer3D.domElement);
+
+            // 4. عناصر التحكم بالكاميرا (OrbitControls)
+            controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+            controls3D.enableDamping = true;
+            controls3D.dampingFactor = 0.05;
+            controls3D.maxPolarAngle = Math.PI / 2 - 0.05; // منع الكاميرا من النزول تحت الأرضية
+            controls3D.minDistance = 6;
+            controls3D.maxDistance = 80;
+
+            // 5. الإضاءة المحيطية والمسرحية
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+            scene3D.add(ambientLight);
+
+            const directLight = new THREE.DirectionalLight(0xfffbeb, 0.85); // إضاءة دافئة مسرحية
+            directLight.position.set(20, 45, 20);
+            directLight.castShadow = true;
+            directLight.shadow.mapSize.width = 1024;
+            directLight.shadow.mapSize.height = 1024;
+            scene3D.add(directLight);
+
+            // إضاءة خضراء ناعمة منعكسة من اتجاه الملعب
+            const pitchLight = new THREE.DirectionalLight(0x10b981, 0.35);
+            pitchLight.position.set(0, 10, -45);
+            scene3D.add(pitchLight);
+
+            // 6. أرضية المقصورة الفاخرة (محاكاة باركيه خشبي / مخملي)
+            const floorGeo = new THREE.PlaneGeometry(65, 65);
+            const floorMat = new THREE.MeshStandardMaterial({ 
+                color: 0x1e293b, 
+                roughness: 0.55,
+                metalness: 0.15
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene3D.add(floor);
+
+            // حاجز المقصورة الزجاجي الأمامي الممتد
+            const glassGeo = new THREE.BoxGeometry(45, 2.5, 0.15);
+            const glassMat = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.25,
+                roughness: 0.1,
+                transmission: 0.85,
+                thickness: 1.0
+            });
+            const glassBarrier = new THREE.Mesh(glassGeo, glassMat);
+            glassBarrier.position.set(0, 1.25, -18);
+            scene3D.add(glassBarrier);
+
+            // 7. بناء كراسي الـ VVIP المائة (10 صفوف × 10 أعمدة)
+            build3DChairs();
+
+            // الاستماع إلى النقرات لاختيار المقاعد عبر الأشعة ثلاثية الأبعاد
+            renderer3D.domElement.addEventListener('click', onCanvasClick3D, false);
+
+            // بدء حلقة الرسوم المتحركة والتصيير المستمرة
+            animate3D();
+
+            // تصحيح الأبعاد بعد التحميل لضمان دقة الكاميرا
+            setTimeout(onWindowResize3D, 150);
+        }
+
+        // بناء كراسي الـ VVIP ومصفوفة الإسناد
+        function build3DChairs() {
+            clickableObjects3D = [];
+            chairGroupMap3D.clear();
+
+            // نقوم ببناء كراسي VVIP تفاعلياً لصفوف VVIP الحالية بالفعالية النشطة
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            const config = activeEvent.seatingConfig.VVIP;
+            const rows = config.rows.length;
+            const cols = config.seatsPerRow;
+
+            const xSpacing = 3.5;
+            const zSpacing = 3.6;
+            
+            const xStart = -((cols - 1) * xSpacing) / 2;
+            const zStart = -((rows - 1) * zSpacing) / 2 + 4;
+
+            for (let r = 0; r < rows; r++) {
+                const rowLetter = config.rows[r];
+                for (let c = 0; c < cols; c++) {
+                    const seatNum = c + 1;
+                    const seatId = `${rowLetter}-${seatNum}`; // المعرف (مثال: A-5)
+                    
+                    const posX = xStart + (c * xSpacing);
+                    const posZ = zStart + (r * zSpacing);
+                    const posY = r * 0.16; // تدرج الارتفاع لتأثير الرؤية المدرجة
+
+                    const chairGroup = createVVIPChairMesh(seatId);
+                    chairGroup.position.set(posX, posY, posZ);
+                    scene3D.add(chairGroup);
+
+                    chairGroupMap3D.set(seatId, {
+                        group: chairGroup,
+                        row: rowLetter,
+                        seatNum: seatNum,
+                        posX: posX,
+                        posY: posY,
+                        posZ: posZ
+                    });
+                }
+            }
+
+            update3DChairs();
+        }
+
+        // بناء وتصميم هندسة الكرسي الفردي
+        function createVVIPChairMesh(seatId) {
+            const group = new THREE.Group();
+            group.name = seatId;
+
+            // قاعدة الكرسي ومسند الظهر واليدين
+            const baseGeo = new THREE.BoxGeometry(1.7, 0.38, 1.5);
+            const baseMat = new THREE.MeshStandardMaterial({ roughness: 0.55 });
+            const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+            baseMesh.position.y = 0.5;
+            baseMesh.castShadow = true;
+            baseMesh.receiveShadow = true;
+            baseMesh.userData = { seatId: seatId };
+            group.add(baseMesh);
+
+            const backGeo = new THREE.BoxGeometry(1.7, 1.7, 0.35);
+            const backMat = new THREE.MeshStandardMaterial({ roughness: 0.55 });
+            const backMesh = new THREE.Mesh(backGeo, backMat);
+            backMesh.position.set(0, 1.3, 0.55);
+            backMesh.rotation.x = 0.08;
+            backMesh.castShadow = true;
+            backMesh.userData = { seatId: seatId };
+            group.add(backMesh);
+
+            const armGeo = new THREE.BoxGeometry(0.18, 0.75, 1.4);
+            const armMeshL = new THREE.Mesh(armGeo, backMat);
+            armMeshL.position.set(-0.9, 0.75, 0.05);
+            armMeshL.castShadow = true;
+            armMeshL.userData = { seatId: seatId };
+            group.add(armMeshL);
+
+            const armMeshR = armMeshL.clone();
+            armMeshR.position.x = 0.9;
+            armMeshR.userData = { seatId: seatId };
+            group.add(armMeshR);
+
+            // الحافة الذهبية الفاخرة الملازمة لتصميم VVIP
+            const trimGeo = new THREE.BoxGeometry(0.2, 0.08, 1.42);
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.15 });
+            const trimL = new THREE.Mesh(trimGeo, goldMat);
+            trimL.position.set(-0.9, 1.13, 0.05);
+            group.add(trimL);
+
+            const trimR = trimL.clone();
+            trimR.position.x = 0.9;
+            group.add(trimR);
+
+            // إضافة الأجسام للـ Raycast القابل للضغط
+            clickableObjects3D.push(baseMesh, backMesh, armMeshL, armMeshR);
+
+            return group;
+        }
+
+        // تحديث الحالات والألوان للـ 3D بناءً على الحجوزات الحقيقية للـ VVIP
+        function update3DChairs() {
+            if (!scene3D) return;
+
+            const activeEvent = getActiveEvent();
+            if (!activeEvent) return;
+
+            chairGroupMap3D.forEach((chairData, seatId) => {
+                const group = chairData.group;
+                
+                // البحث عن الضيف الموافق والمحجوز له هذا الكرسي (الصف كرسي)
+                const occupant = activeEvent.guests.find(g => 
+                    g.approval === 'approved' && 
+                    g.category === 'VVIP' && 
+                    g.row === chairData.row && 
+                    parseInt(g.seatNum) === chairData.seatNum
+                );
+
+                group.children.forEach(child => {
+                    if (child.material && child.material !== scene3D.background) {
+                        // عدم تعديل الأجزاء الذهبية
+                        if (child.material.color && child.material.color.getHex() === 0xd97706 && child.material.metalness > 0.5) {
+                            return; 
+                        }
+
+                        if (occupant) {
+                            child.material.color.setHex(0xb91c1c); // أحمر مخملي فخم للـ VVIP المحجوز
+                            child.material.roughness = 0.6;
+                        } else {
+                            child.material.color.setHex(0x334155); // رمادي غامق أنيق للشاغر
+                            child.material.roughness = 0.35;
+                        }
+                    }
+                });
+
+                // إزالة اللوحة العائمة القديمة وإعادة بنائها لمنع تكرار النصوص والأسماء
+                const oldSprite = group.getObjectByName("nameplate");
+                if (oldSprite) group.remove(oldSprite);
+
+                // إنشاء لوحة الاسم ثلاثية الأبعاد
+                const nameSprite = createNameSprite3D(seatId, occupant);
+                nameSprite.name = "nameplate";
+                nameSprite.position.set(0, 2.5, 0); // تطفو فوق الكرسي
+                group.add(nameSprite);
+            });
+        }
+
+        // توليد لوحات الأسماء ثلاثية الأبعاد بدقة توافقية تامة
+        function createNameSprite3D(seatId, guest) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 380;
+            canvas.height = 100;
+            const ctx = canvas.getContext('2d');
+
+            // خلفية زجاجية أنيقة متدرجة ومطورة
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            if (guest) {
+                gradient.addColorStop(0, 'rgba(217, 119, 6, 0.95)');
+                gradient.addColorStop(0.5, 'rgba(120, 53, 15, 0.98)');
+                gradient.addColorStop(1, 'rgba(217, 119, 6, 0.95)');
+            } else {
+                gradient.addColorStop(0, 'rgba(51, 65, 85, 0.75)');
+                gradient.addColorStop(1, 'rgba(15, 23, 42, 0.85)');
+            }
+
+            ctx.fillStyle = gradient;
+            
+            // استخدام دالة الرسم الآمنة لتجنب انهيار الكود في بعض المتصفحات
+            drawRoundRectSafe(ctx, 5, 5, canvas.width - 10, canvas.height - 10, 16);
+            ctx.fill();
+
+            // رسم إطار لوحة الاسم
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = guest ? '#fef3c7' : 'rgba(255,255,255,0.2)';
+            ctx.stroke();
+
+            // طباعة المعرف والاسم باللغة العربية والخط المميز
+            ctx.fillStyle = guest ? '#fef3c7' : '#94a3b8';
+            ctx.font = 'bold 16px Cairo, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`الصف ${seatId}`, canvas.width / 2, 32);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 21px Cairo, sans-serif';
+            const displayName = guest ? guest.name : 'مـقـعـد شـاغـر';
+            ctx.fillText(displayName, canvas.width / 2, 68);
+
+            // تحويل لوحة الاسم إلى ملمس ثلاثي الأبعاد
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture, 
+                transparent: true,
+                depthTest: true
+            });
+            
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(4.0, 1.0, 1.0);
+            return sprite;
+        }
+
+        // النقر على عناصر الكانفاس لتسهيل الحجوزات أو إدارتها
+        function onCanvasClick3D(event) {
+            if (!scene3D) return;
+
+            const rect = renderer3D.domElement.getBoundingClientRect();
+            mouse3D.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse3D.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster3D.setFromCamera(mouse3D, camera3D);
+            const intersects = raycaster3D.intersectObjects(clickableObjects3D);
+
+            if (intersects.length > 0) {
+                const hitObj = intersects[0].object;
+                if (hitObj.userData && hitObj.userData.seatId) {
+                    const seatId = hitObj.userData.seatId; // مثل A-1
+                    const parts = seatId.split('-');
+                    const rowLetter = parts[0];
+                    const seatNum = parseInt(parts[1]);
+
+                    const activeEvent = getActiveEvent();
+                    if (!activeEvent) return;
+
+                    // البحث عن الضيف الموافق المسكن في هذا المقعد
+                    const occupant = activeEvent.guests.find(g => 
+                        g.approval === 'approved' && 
+                        g.category === 'VVIP' && 
+                        g.row === rowLetter && 
+                        parseInt(g.seatNum) === seatNum
+                    );
+                    
+                    if (occupant) {
+                        showGuestModal(occupant);
+                    } else {
+                        // إذا كان المقعد شاغراً، نتيح التسكين السريع للمراسم
+                        selectSeatInProtocolForm('VVIP', rowLetter, seatNum);
+                    }
+                }
+            }
+        }
+
+        // حلقة التحديث المستمرة للـ 3D
+        function animate3D() {
+            if (activeViewTab !== '3d') return; // توفير طاقة وموارد المعالج عند تبديل الواجهة
+
+            requestAnimationFrame(animate3D);
+
+            if (controls3D) controls3D.update();
+
+            if (renderer3D && scene3D && camera3D) {
+                renderer3D.render(scene3D, camera3D);
+            }
+        }
+
+        // معالجة تغيير حجم المتصفح لضمان عدم حدوث تمدد مشوه للمقصورة 3D
+        function onWindowResize3D() {
+            if (!scene3D) return;
+            const container = document.getElementById('canvas-3d-holder');
+            const width = container.clientWidth || window.innerWidth * 0.55;
+            const height = container.clientHeight || 550;
+
+            camera3D.aspect = width / height;
+            camera3D.updateProjectionMatrix();
+            renderer3D.setSize(width, height);
+        }
+
+        // إعادة الكاميرا إلى نقطة البداية المثالية للـ 3D
+        function reset3DCamera() {
+            if (!camera3D) return;
+            camera3D.position.set(0, 19, 29);
+            if (controls3D) {
+                controls3D.target.set(0, 2, 0);
+                controls3D.update();
+            }
+        }
+
+        function dismiss3DLoading() {
+            document.getElementById('canvas3d-loading').classList.add('hidden');
+        }
+
+        // توليد أحرف الصفوف ديناميكياً
+        function generateAlphabetRows(count, startChar) {
+            const startCode = startChar.charCodeAt(0);
+            const rows = [];
+            for (let i = 0; i < count; i++) {
+                rows.push(String.fromCharCode(startCode + i));
+            }
+            return rows;
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
